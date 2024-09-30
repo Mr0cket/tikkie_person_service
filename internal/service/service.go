@@ -7,9 +7,9 @@ import (
 )
 
 var ErrFailedValidation = errors.New("failed validation")
-var ErrExistingPerson = errors.New("Person with this phone number already exists")
+var ErrExistingPerson = errors.New("person with this phone number already exists")
 
 type Service struct {
-	DB         *mongo.Database
-	SqsQueueID string
+	DB           *mongo.Database
+	SqsQueueName string
 }

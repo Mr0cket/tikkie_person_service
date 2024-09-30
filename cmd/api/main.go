@@ -23,7 +23,7 @@ type Application struct {
 
 func main() {
 	mongoURI := flag.String("uri", "mongodb://root:example@localhost:27017", "connection string (URI) for Mongo")
-	sqsQueueID := flag.String("queue", "NOT_IMPLEMENTED_YET", "SQS queue ID")
+	sqsQueueName := flag.String("queueName", "development-queue", "SQS queue Name")
 	port := flag.Int("port", 6666, "Port") // TODO: use env var
 
 	flag.Parse()
@@ -54,7 +54,7 @@ func main() {
 
 	app := &Application{
 		logger:  logger,
-		service: &service.Service{DB: db, SqsQueueID: *sqsQueueID},
+		service: &service.Service{DB: db, SqsQueueName: *sqsQueueName},
 	}
 
 	mux := flow.New()
