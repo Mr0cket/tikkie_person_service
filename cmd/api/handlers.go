@@ -9,7 +9,7 @@ import (
 	"github.com/Mr0cket/tikkie_person_service/internal/service"
 )
 
-func (app *application) registerPersonHandler(w http.ResponseWriter, r *http.Request) {
+func (app *Application) registerPersonHandler(w http.ResponseWriter, r *http.Request) {
 	var input service.CreatePersonInput
 
 	s := r.ContentLength
@@ -25,8 +25,10 @@ func (app *application) registerPersonHandler(w http.ResponseWriter, r *http.Req
 
 	if err != nil {
 		if errors.Is(err, service.ErrFailedValidation) {
+			// TODO: Return the validation errors in JSON format.
 			log.Fatalln("Validation errors in person payload")
 		} else {
+			// TODO: Return a generic error message in JSON format. (400 status code)
 			log.Fatalln(err)
 		}
 		return

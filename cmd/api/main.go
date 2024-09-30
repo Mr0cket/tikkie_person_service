@@ -16,19 +16,19 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-type application struct {
+type Application struct {
 	logger  *log.Logger
 	service *service.Service
 }
 
 func main() {
-	mongoURI := flag.String("uri", "NOT_IMPLEMENTED_YET", "connection string (URI) for Mongo")
+	mongoURI := flag.String("uri", "mongodb://root:example@localhost:27017", "connection string (URI) for Mongo")
 	sqsQueueID := flag.String("queue", "NOT_IMPLEMENTED_YET", "SQS queue ID")
 	port := flag.Int("port", 6666, "Port") // TODO: use env var
 
 	flag.Parse()
 
-	logger := log.New(os.Stdout, "", log.LstdFlags|log.Llongfile)
+	logger := log.New(os.Stdout, "app", log.LstdFlags|log.Llongfile)
 
 	// Setup MongoDB connection
 	serverAPI := options.ServerAPI(options.ServerAPIVersion1)
@@ -47,11 +47,12 @@ func main() {
 
 	// Test MongoDB connection
 	var result bson.M
-	if err := db.RunCommand(context.TODO(), bson.D{{"ping", 1}}).Decode(&result); err != nil {
+	if err := db.RunCommand(context.TODO(), bson.D{{Key: "ping", Value: 1}}).Decode(&result); err != nil {
 		panic(err)
 	}
+	logger.Printf("Connected to MongoDB: %+v\n", result["ok"])
 
-	app := &application{
+	app := &Application{
 		logger:  logger,
 		service: &service.Service{DB: db, SqsQueueID: *sqsQueueID},
 	}
