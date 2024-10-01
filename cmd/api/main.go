@@ -10,6 +10,7 @@ import (
 	"github.com/kelseyhightower/envconfig"
 
 	"github.com/Mr0cket/tikkie_person_service/external/mongo"
+	"github.com/Mr0cket/tikkie_person_service/external/sqs"
 	"github.com/Mr0cket/tikkie_person_service/internal/service"
 )
 
@@ -35,13 +36,17 @@ func main() {
 	logger := log.New(os.Stdout, "app", log.LstdFlags|log.Llongfile)
 	db := mongo.NewClient(cfg.MongoURI, cfg.Database)
 	defer db.Close()
+
+	sqsClient := sqs.NewClient(cfg.SQSQueue)
 	app := &Application{
 		logger:  logger,
-		service: &service.Service{DB: *db, SqsQueueName: cfg.SQSQueue},
+		service: &service.Service{DB: *db, Sqs: *sqsClient},
 	}
 
 	mux := flow.New()
-	mux.HandleFunc("/register", app.createPersonHandler, "POST")
+	mux.HandleFunc("/person", app.createPersonHandler, "POST")
+	mux.HandleFunc("/person", app.listPersonsHandler, "GET")
+	// mux.HandleFunc("/person/{ID}", app.getPersonHandler, "GET")
 
 	portString := fmt.Sprintf(":%d", cfg.Port)
 

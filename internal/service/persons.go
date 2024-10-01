@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"log"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -11,11 +12,11 @@ import (
 type ValidationErrors map[string]string
 
 type CreatePersonInput struct {
-	FirstName        string `bson:"firstName" json:"firstName" `
-	LastName         string `bson:"lastName" json:"lastName"`
-	PhoneNumber      string `bson:"phoneNumber" json:"phoneNumber"`
-	Address          string `bson:"address" json:"address"` // Using a simple string for simplicity. In real life, you should use a proper address object.
-	ValidationErrors ValidationErrors
+	FirstName        string           `bson:"firstName" json:"firstName" `
+	LastName         string           `bson:"lastName" json:"lastName"`
+	PhoneNumber      string           `bson:"phoneNumber" json:"phoneNumber"`
+	Address          string           `bson:"address" json:"address"` // Using a simple string for simplicity. In real life, you should use a proper address object.
+	ValidationErrors ValidationErrors `bson:"-" json:"-"`
 }
 
 type Person struct {
@@ -61,12 +62,26 @@ func (s *Service) CreatePerson(input *CreatePersonInput) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	personID := person.InsertedID.(primitive.ObjectID).Hex()
 
-	log.Printf("Created person ID: %v\n", person.InsertedID)
+	log.Printf("Created person ID: %v\n", personID)
 
 	// 3. Publish a new event (Module)
+	attributes := map[string]string{
+		"dataType":    "person",
+		"messageType": "create",
+		"itemId":      personID,
+		"source":      "person-service",
+	}
+	jsonBytes, err := json.Marshal(input)
+	if err != nil {
+		return "", err
+	}
+	log.Println(string(jsonBytes))
+	messageID := s.Sqs.SendMessage(attributes, string(jsonBytes))
+	log.Printf("Published createPerson event: %v\n", messageID)
 
-	return person.InsertedID.(primitive.ObjectID).Hex(), nil
+	return personID, nil
 }
 
 func (s *Service) ListPersons() ([]Person, error) {

@@ -11,7 +11,6 @@ var ErrFailedValidation = errors.New("failed validation")
 var ErrExistingPerson = errors.New("person with this phone number already exists")
 
 type Service struct {
-	DB           mongo.Mongo
-	Sqs          *sqs.Sqs
-	SqsQueueName string
+	DB  mongo.Mongo
+	Sqs sqs.Sqs
 }

@@ -15,7 +15,7 @@ type Sqs struct {
 	client    sqs.Client
 }
 
-func NewClient(queueName string) Sqs {
+func NewClient(queueName string) *Sqs {
 
 	// 3. Publish a new event to the SQS queue
 	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion("us-west-2"))
@@ -25,13 +25,13 @@ func NewClient(queueName string) Sqs {
 
 	svc := sqs.NewFromConfig(cfg)
 
-	return Sqs{
+	return &Sqs{
 		QueueName: queueName,
 		client:    *svc,
 	}
 }
 
-func (s *Sqs) SendMessage(attributes map[string]string, message interface{}) {
+func (s *Sqs) SendMessage(attributes map[string]string, message string) string {
 	result, err := s.client.GetQueueUrl(context.TODO(), &sqs.GetQueueUrlInput{
 		QueueName: aws.String(s.QueueName),
 	})
@@ -39,16 +39,16 @@ func (s *Sqs) SendMessage(attributes map[string]string, message interface{}) {
 		log.Fatalf("Unable to fetch queue URL: %v", err)
 	}
 
-	_, err = s.client.SendMessage(context.TODO(), &sqs.SendMessageInput{
+	messageOutput, err := s.client.SendMessage(context.TODO(), &sqs.SendMessageInput{
 		DelaySeconds:      *aws.Int32(10),
 		MessageAttributes: s.createAttributes(attributes),
-		MessageBody:       aws.String("New person created"), // TODO: use a proper JSON object
+		MessageBody:       aws.String(message), // TODO: use a proper JSON object
 		QueueUrl:          result.QueueUrl,
 	})
-
 	if err != nil {
 		log.Fatalf("failed to send message, %v", err)
 	}
+	return *messageOutput.MessageId
 }
 
 // Only support string attributes for now
