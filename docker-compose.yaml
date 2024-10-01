@@ -34,21 +34,18 @@ services:
       AWS_DEFAULT_OUTPUT: json
     # volumes:
     #   - "sqs:/tmp/localstack"
-    # Create an sqs queue after the service is up
+    # Attempt to create an sqs queue after the service is up (from experience, 10s is sufficient)
     healthcheck:
-      test: >
-        aws --endpoint-url=http://example-endpoint:8080 sqs create-queue --queue-name=development-queue
+      test: aws --endpoint-url=http://example-endpoint:8080 sqs create-queue --queue-name=development-queue || true
       start_period: 10s
       interval: 10s
       timeout: 10s
       retries: 0
 
   example-endpoint:
-    image: hello-http
+    image: mr0cket/http-bin
     restart: always
     ports:
       - 6546:8080
     environment:
       - PORT=8080
-# volumes:
-#   sqs: null

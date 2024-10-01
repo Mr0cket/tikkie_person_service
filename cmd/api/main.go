@@ -47,7 +47,7 @@ func main() {
 
 	// Test MongoDB connection
 	var result bson.M
-	if err := db.RunCommand(context.TODO(), bson.D{{Key: "ping", Value: 1}}).Decode(&result); err != nil {
+	if err := db.RunCommand(context.TODO(), bson.D{{"ping", 1}}).Decode(&result); err != nil {
 		panic(err)
 	}
 	logger.Printf("Connected to MongoDB: %+v\n", result["ok"])
@@ -58,7 +58,7 @@ func main() {
 	}
 
 	mux := flow.New()
-	mux.HandleFunc("/register", app.registerPersonHandler, "POST")
+	mux.HandleFunc("/register", app.createPersonHandler, "POST")
 
 	portString := fmt.Sprintf(":%d", *port)
 

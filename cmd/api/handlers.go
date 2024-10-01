@@ -9,27 +9,28 @@ import (
 	"github.com/Mr0cket/tikkie_person_service/internal/service"
 )
 
-func (app *Application) registerPersonHandler(w http.ResponseWriter, r *http.Request) {
+func (app *Application) createPersonHandler(w http.ResponseWriter, r *http.Request) {
 	var input service.CreatePersonInput
 
 	s := r.ContentLength
 	bodyBuffer := make([]byte, s)
 	r.Body.Read(bodyBuffer)
-	err := json.Unmarshal(bodyBuffer, &s)
+	err := json.Unmarshal(bodyBuffer, &input)
 	if err != nil {
 		log.Fatalln("Unable to parse JSON body")
 		return
 	}
 
-	personID, err := app.service.CreatePerson(input)
+	personID, err := app.service.CreatePerson(&input)
 
 	if err != nil {
 		if errors.Is(err, service.ErrFailedValidation) {
 			// TODO: Return the validation errors in JSON format.
-			log.Fatalln("Validation errors in person payload")
+			log.Println("Validation errors in person payload:", input)
+			app.failedValidation(w, r, input.ValidationErrors)
+			return
 		} else {
-			// TODO: Return a generic error message in JSON format. (400 status code)
-			log.Fatalln(err)
+			app.serverError(w, r, err)
 		}
 		return
 	}
@@ -39,3 +40,5 @@ func (app *Application) registerPersonHandler(w http.ResponseWriter, r *http.Req
 	// TODO: Change to return the personID in JSON format.
 	w.Write([]byte(personID))
 }
+
+func (app *Application) listPersonsHandler(w http.ResponseWriter, r *http.Request) {}

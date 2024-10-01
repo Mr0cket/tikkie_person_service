@@ -1,0 +1,48 @@
+# Golang
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+go.work
+
+# CDK
+*.js
+!jest.config.js
+*.d.ts
+node_modules
+.cdk.staging
+cdk.out
+
+# TypeScript
+*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# AWS
+.aws-sam
+.serverless
+
+# IDE
+.vscode/
+__debug_bin*
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Misc
+*.log
+*.bak
+*.swp
+*.swo
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.external
