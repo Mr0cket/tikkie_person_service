@@ -1,13 +1,8 @@
 package service
 
 import (
-	"context"
 	"log"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/service/sqs"
-	"github.com/aws/aws-sdk-go-v2/service/sqs/types"
 	"go.mongodb.org/mongo-driver/bson"
 )
 
@@ -44,47 +39,22 @@ func (s *Service) CreatePerson(input *CreatePersonInput) (string, error) {
 	// 2. Create a person object in the database
 	// 2.1 If the person already exists, return an error
 	// Assume phone number is unique per person, so we can check if the person already exists by performing lookup on phone number.
-	existingPerson := s.DB.Collection("persons").FindOne(context.TODO(), bson.M{"phoneNumber": input.PhoneNumber})
+	existingPerson := s.DB.FindDocument("persons_master", bson.M{"phoneNumber": input.PhoneNumber})
 
 	if existingPerson.Err() == nil {
 		log.Println(existingPerson.Raw())
 		return "", ErrExistingPerson
 	}
 	// 2.2 Create a new person
-	person, err := s.DB.Collection("persons_master").InsertOne(context.TODO(), input)
+	person, err := s.DB.InsertDocument("persons_master", input)
 
 	if err != nil {
 		return "", err
 	}
+
 	log.Printf("Created person ID: %v\n", person.InsertedID)
 
-	// 3. Publish a new event to the SQS queue
-	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion("us-west-2"))
-	if err != nil {
-		log.Fatalf("unable to load SDK config, %v", err)
-	}
-
-	svc := sqs.NewFromConfig(cfg)
-
-	result, err := svc.GetQueueUrl(context.TODO(), &sqs.GetQueueUrlInput{
-		QueueName: aws.String(s.SqsQueueName),
-	})
-	if err != nil {
-		log.Fatalf("Unable to fetch queue URL: %v", err)
-	}
-
-	_, err = svc.SendMessage(context.TODO(), &sqs.SendMessageInput{
-		DelaySeconds: *aws.Int32(10),
-		MessageAttributes: map[string]types.MessageAttributeValue{
-			"type": {DataType: aws.String("String"), StringValue: aws.String("personCreated")},
-		},
-		MessageBody: aws.String("New person created"), // TODO: use a proper JSON object
-		QueueUrl:    result.QueueUrl,
-	})
-
-	if err != nil {
-		log.Fatalf("failed to send message, %v", err)
-	}
+	// 3. Publish a new event (Module)
 
 	return "ID", nil
 }
