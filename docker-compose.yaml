@@ -36,7 +36,7 @@ services:
     #   - "sqs:/tmp/localstack"
     # Attempt to create an sqs queue after the service is up (from experience, 10s is sufficient)
     healthcheck:
-      test: aws --endpoint-url=http://example-endpoint:8080 sqs create-queue --queue-name=development-queue || true
+      test: aws --endpoint-url=http://example-endpoint:8080 sqs create-queue --queue-name=persons || true
       start_period: 10s
       interval: 10s
       timeout: 10s

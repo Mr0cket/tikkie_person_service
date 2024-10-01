@@ -2,13 +2,13 @@ package main
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
 
 	"github.com/alexedwards/flow"
+	"github.com/kelseyhightower/envconfig"
 
 	"github.com/Mr0cket/tikkie_person_service/internal/service"
 	"go.mongodb.org/mongo-driver/bson"
@@ -21,18 +21,25 @@ type Application struct {
 	service *service.Service
 }
 
-func main() {
-	mongoURI := flag.String("uri", "mongodb://root:example@localhost:27017", "connection string (URI) for Mongo")
-	sqsQueueName := flag.String("queueName", "development-queue", "SQS queue Name")
-	port := flag.Int("port", 6666, "Port") // TODO: use env var
+type Config struct {
+	MongoURI string `default:"mongodb://root:example@localhost:27017"`
+	SQSQueue string `default:"persons"`
+	Database string `default:"persons"`
+	Port     int    `default:"6666"`
+}
 
-	flag.Parse()
+func main() {
+	var cfg Config
+	err := envconfig.Process("APP", &cfg)
+	if err != nil {
+		log.Fatal(err.Error())
+	}
 
 	logger := log.New(os.Stdout, "app", log.LstdFlags|log.Llongfile)
 
 	// Setup MongoDB connection
 	serverAPI := options.ServerAPI(options.ServerAPIVersion1)
-	opts := options.Client().ApplyURI(*mongoURI).SetServerAPIOptions(serverAPI)
+	opts := options.Client().ApplyURI(cfg.MongoURI).SetServerAPIOptions(serverAPI)
 	mongoClient, err := mongo.Connect(context.TODO(), opts)
 	if err != nil {
 		logger.Fatal(err)
@@ -43,7 +50,7 @@ func main() {
 		}
 	}()
 
-	db := mongoClient.Database("persons")
+	db := mongoClient.Database(cfg.Database)
 
 	// Test MongoDB connection
 	var result bson.M
@@ -54,13 +61,13 @@ func main() {
 
 	app := &Application{
 		logger:  logger,
-		service: &service.Service{DB: db, SqsQueueName: *sqsQueueName},
+		service: &service.Service{DB: db, SqsQueueName: cfg.SQSQueue},
 	}
 
 	mux := flow.New()
 	mux.HandleFunc("/register", app.createPersonHandler, "POST")
 
-	portString := fmt.Sprintf(":%d", *port)
+	portString := fmt.Sprintf(":%d", cfg.Port)
 
 	logger.Printf("Starting server on %s\n", portString)
 	err = http.ListenAndServe(portString, mux)
