@@ -2,7 +2,9 @@ package mongo
 
 import (
 	"context"
+	"fmt"
 	"log"
+	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -11,24 +13,20 @@ import (
 
 type Mongo struct {
 	logger *log.Logger
-	db     *mongo.Database
+	client *mongo.Client
+	db     string
 }
 
 // Database client
 func NewClient(mongoUri string, database string) *Mongo {
 	logger := log.New(log.Writer(), "mongo", log.Flags())
 	serverAPI := options.ServerAPI(options.ServerAPIVersion1)
-	opts := options.Client().ApplyURI(mongoUri).SetServerAPIOptions(serverAPI)
+	opts := options.Client().ApplyURI(mongoUri).SetServerAPIOptions(serverAPI).SetMaxConnIdleTime(time.Duration(10) * time.Second)
+	fmt.Println(opts.MaxConnIdleTime)
 	mongoClient, err := mongo.Connect(context.TODO(), opts)
 	if err != nil {
 		logger.Fatal(err)
 	}
-	defer func() {
-		if err = mongoClient.Disconnect(context.TODO()); err != nil {
-			panic(err)
-		}
-	}()
-
 	db := mongoClient.Database(database)
 
 	// Test MongoDB connection
@@ -40,15 +38,35 @@ func NewClient(mongoUri string, database string) *Mongo {
 
 	return &Mongo{
 		logger: logger,
-		db:     db,
+		client: mongoClient,
+		db:     database,
 	}
 }
 
 func (m *Mongo) FindDocument(collection string, query bson.M) mongo.SingleResult {
-	return *m.db.Collection(collection).FindOne(context.TODO(), query)
+	return *m.client.Database(m.db).Collection(collection).FindOne(context.TODO(), query)
 }
 
 func (m *Mongo) InsertDocument(collection string, document interface{}) (mongo.InsertOneResult, error) {
-	result, err := m.db.Collection(collection).InsertOne(context.TODO(), document)
+	result, err := m.client.Database(m.db).Collection(collection).InsertOne(context.TODO(), document)
 	return *result, err
+}
+
+// As there is no requirement to filter the list of documents,
+// We can simplify the function by listing all documents in the collection
+func (m *Mongo) ListDocuments(collection string) mongo.Cursor {
+
+	cursor, err := m.client.Database(m.db).Collection(collection).Find(context.TODO(), bson.D{})
+	if err != nil {
+		m.logger.Fatal(err)
+	}
+	return *cursor
+}
+
+func (m *Mongo) Close() {
+	defer func() {
+		if err := m.client.Disconnect(context.TODO()); err != nil {
+			panic(err)
+		}
+	}()
 }

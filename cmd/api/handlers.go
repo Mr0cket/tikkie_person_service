@@ -41,4 +41,19 @@ func (app *Application) createPersonHandler(w http.ResponseWriter, r *http.Reque
 	w.Write([]byte(personID))
 }
 
-func (app *Application) listPersonsHandler(w http.ResponseWriter, r *http.Request) {}
+func (app *Application) listPersonsHandler(w http.ResponseWriter, r *http.Request) {
+	persons, err := app.service.ListPersons()
+	if err != nil {
+		app.serverError(w, r, err)
+		return
+	}
+	personsJSON, err := json.Marshal(persons)
+	if err != nil {
+		app.serverError(w, r, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write(personsJSON)
+}

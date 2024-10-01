@@ -9,6 +9,7 @@ import (
 	"github.com/alexedwards/flow"
 	"github.com/kelseyhightower/envconfig"
 
+	"github.com/Mr0cket/tikkie_person_service/external/mongo"
 	"github.com/Mr0cket/tikkie_person_service/internal/service"
 )
 
@@ -32,10 +33,11 @@ func main() {
 	}
 
 	logger := log.New(os.Stdout, "app", log.LstdFlags|log.Llongfile)
-
+	db := mongo.NewClient(cfg.MongoURI, cfg.Database)
+	defer db.Close()
 	app := &Application{
 		logger:  logger,
-		service: &service.Service{DB: db, SqsQueueName: cfg.SQSQueue},
+		service: &service.Service{DB: *db, SqsQueueName: cfg.SQSQueue},
 	}
 
 	mux := flow.New()
