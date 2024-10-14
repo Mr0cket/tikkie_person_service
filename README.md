@@ -9,5 +9,24 @@
 
 ## Notes on Structure
 
-- In /external are packages that can be reused by other projects
-- In /internal are packages only used by this project
+```
+├── app
+│   ├── cmd
+│   ├── external
+│   └── internal
+└── infra
+    ├── bin
+    ├── lib
+    └── test
+```
+
+- /app contains the service code
+- /infra contains the cdk IAC config and scripts to deploy to AWS
+- app/external contains packages that could be reused by other projects
+- app/internal contains core packages, specific to this project
+- app/cmd contains main application entry points (http server, lambda function, cli interface, etc)
+
+Gotchas
+
+- I had to use the `aws-sdk` package to connect to DocumentDB, since the `mongodb` package does not support DocumentDB.
+- To build and deploy from my local machine (m1 mac), I set build arguments `GOARCH=amd64` and `GOOS=linux` in the Dockerfile. This prepares the function for the lambda x86_64 architectures.
