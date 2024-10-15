@@ -26,7 +26,9 @@
 - app/internal contains core packages, specific to this project
 - app/cmd contains main application entry points (http server, lambda function, cli interface, etc)
 
-Gotchas
+## Gotchas
 
 - I had to use the `aws-sdk` package to connect to DocumentDB, since the `mongodb` package does not support DocumentDB.
 - To build and deploy from my local machine (m1 mac), I set build arguments `GOARCH=amd64` and `GOOS=linux` in the Dockerfile. This prepares the function for the lambda x86_64 architectures.
+
+## Improvements

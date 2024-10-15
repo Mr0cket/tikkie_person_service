@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"log"
 	"os"
 
@@ -15,16 +14,17 @@ import (
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/service/ssm"
+	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
 	"github.com/kelseyhightower/envconfig"
 )
 
 type Config struct {
-	MongoServer  string `default:"mongodb://root:example@localhost:27017" split_words:"true"`
-	SQSQueueName string `default:"persons" split_words:"true"`
+	Environment  string `default:"dev"`
+	MongoServer  string `split_words:"true"`
+	SQSQueueName string `split_words:"true"`
 	Database     string `default:"persons"`
-	Port         int    `default:"6666"`
-	Region       string `default:"europe-west-2"`
+	Region       string `envconfig:"AWS_REGION"`
+	DbSecretArn  string `default:"abcd" split_words:"true"`
 }
 
 type Application struct {
@@ -40,29 +40,31 @@ func init() {
 	logger.Println("Initialising application")
 
 	var cfg Config
-	err := envconfig.Process("APP", &cfg)
+	err := envconfig.Process("app", &cfg)
 	if err != nil {
 		log.Fatal(err.Error())
 	}
+
 	awsCfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(cfg.Region))
 	if err != nil {
 		log.Fatalf("unable to load SDK config, %v", err)
 	}
 
-	ssmClient := ssm.NewFromConfig(awsCfg)
-	result, err := ssmClient.GetParameter(context.TODO(), &ssm.GetParameterInput{Name: aws.String(fmt.Sprintf("/aws/reference/secretsmanager/%s", "mongoUser"))})
+	secretsClient := secretsmanager.NewFromConfig(awsCfg)
+	result, err := secretsClient.GetSecretValue(context.TODO(), &secretsmanager.GetSecretValueInput{
+		SecretId: aws.String(cfg.DbSecretArn),
+	})
 	if err != nil {
-		log.Fatal(err.Error())
+		log.Fatalf("error getting secret value: %v", err)
 	}
 
 	var mongoUser mongo.MongoUser
-	err = json.Unmarshal([]byte(*result.Parameter.Value), &mongoUser)
+	err = json.Unmarshal([]byte(*result.SecretString), &mongoUser)
 	if err != nil {
-		log.Fatal(err.Error())
+		log.Fatalf("error unmarshalling secret: %v", err)
 	}
 
 	db := mongo.NewClient(context.TODO(), cfg.MongoServer, cfg.Database, mongoUser)
-	defer db.Close()
 
 	sqsClient := sqs.NewClient(context.TODO(), awsCfg, cfg.SQSQueueName, cfg.Region)
 
@@ -74,10 +76,15 @@ func init() {
 }
 
 func handlers(ctx context.Context, request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+	app.logger.Println(request.HTTPMethod, request.Path, request.RequestContext.Identity.SourceIP)
+
 	switch request.HTTPMethod {
 	case "POST":
 		return app.createPersonHandler(ctx, request)
 	case "GET":
+		if request.Path == "/health" {
+			return app.healthHandler(ctx, request)
+		}
 		return app.listPersonsHandler(ctx, request)
 	default:
 		return events.APIGatewayProxyResponse{
@@ -88,5 +95,6 @@ func handlers(ctx context.Context, request events.APIGatewayProxyRequest) (event
 }
 
 func main() {
+	defer app.service.DB.Close()
 	lambda.Start(handlers)
 }

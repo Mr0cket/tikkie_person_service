@@ -59,3 +59,18 @@ func (app *Application) listPersonsHandler(ctx context.Context, r events.APIGate
 	}
 	return response, nil
 }
+
+func (app *Application) healthHandler(ctx context.Context, r events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+	// Test database connection
+	success := app.service.HealthCheck()
+	if !success {
+		return events.APIGatewayProxyResponse{
+			StatusCode: http.StatusInternalServerError,
+			Body:       "Database connection failed",
+		}, nil
+	}
+	return events.APIGatewayProxyResponse{
+		StatusCode: http.StatusOK,
+		Body:       "OK",
+	}, nil
+}

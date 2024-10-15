@@ -41,8 +41,8 @@ export class MyCdkProjectStack extends cdk.Stack {
       }
     );
 
-    const bastionKey = new ec2.KeyPair(this, "bastion-key-pair", {
-      keyPairName: "bastion",
+    const bastionKey = new ec2.KeyPair(this, "bastion-key", {
+      keyPairName: "bastion2",
     });
 
     const ec2instance = new ec2.Instance(this, "bastion", {
@@ -78,6 +78,19 @@ export class MyCdkProjectStack extends cdk.Stack {
       },
     });
 
+    // DocumentDB cluster parameter group with TLS disabled (simplify access)
+    const parameterGroup = new docdb.ClusterParameterGroup(
+      this,
+      "DocDBParamGroup",
+      {
+        family: "docdb5.0",
+        parameters: {
+          tls: "disabled",
+        },
+        description: "DocumentDB cluster parameter group with TLS disabled",
+      }
+    );
+
     // Create DocumentDB cluster
     const dbCluster = new docdb.DatabaseCluster(this, "DocDB", {
       masterUser: {
@@ -93,7 +106,8 @@ export class MyCdkProjectStack extends cdk.Stack {
       },
       vpc,
       securityGroup: dbSecurityGroup,
-      removalPolicy: cdk.RemovalPolicy.DESTROY, // Use with caution, only for development
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+      parameterGroup: parameterGroup,
     });
 
     secretsmanager.Secret;
@@ -103,15 +117,22 @@ export class MyCdkProjectStack extends cdk.Stack {
       this,
       "PersonService",
       {
+        timeout: cdk.Duration.seconds(30),
         code: lambda.DockerImageCode.fromImageAsset(
           path.join(__dirname, "../../app")
         ),
         vpc: vpc,
+        securityGroups: [dbSecurityGroup],
+        vpcSubnets: {
+          subnetType: ec2.SubnetType.PUBLIC,
+        },
+        allowPublicSubnet: true,
         functionName: "personService",
         environment: {
-          ENVIRONMENT: "dev",
-          SQS_QUEUE_URL: queue.queueUrl,
-          MONGO_URI: dbCluster.clusterEndpoint.socketAddress,
+          APP_ENVIRONMENT: "dev",
+          APP_SQS_QUEUE_NAME: queue.queueName,
+          APP_MONGO_SERVER: dbCluster.clusterEndpoint.socketAddress,
+          APP_DB_SECRET_ARN: dbSecret.secretArn,
         },
       }
     );
@@ -124,16 +145,18 @@ export class MyCdkProjectStack extends cdk.Stack {
     // Grant Lambda permission to send messages to SQS
     queue.grantSendMessages(lambdaFunction);
 
+    // Grant Lambda permission to read dbSecret
+    dbSecret.grantRead(lambdaFunction);
+
     // Allow inbound traffic on port 27017 from Lambda's security group
     dbSecurityGroup.addIngressRule(
-      ec2.Peer.securityGroupId(
-        lambdaFunction.connections.securityGroups[0].securityGroupId
-      ),
-      ec2.Port.tcp(27017)
+      dbSecurityGroup,
+      ec2.Port.allTraffic(),
+      "Allow all traffic between resources in this security group"
     );
 
     bastionSecurityGroup.addIngressRule(
-      ec2.Peer.ipv4(ec2instance.instancePublicIp),
+      ec2.Peer.ipv4(`${ec2instance.instancePublicIp}/32`),
       ec2.Port.tcp(22)
     );
 
@@ -146,8 +169,8 @@ export class MyCdkProjectStack extends cdk.Stack {
       value: endpoint.url,
     });
 
-    new cdk.CfnOutput(this, "key", {
-      value: bastionKey.privateKey.stringValue,
+    new cdk.CfnOutput(this, "BastionKeyPairName", {
+      value: bastionKey.keyPairName,
     });
   }
 }

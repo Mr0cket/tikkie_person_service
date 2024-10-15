@@ -14,3 +14,8 @@ type Service struct {
 	DB  mongo.Mongo
 	Sqs sqs.Sqs
 }
+
+func (s *Service) HealthCheck() bool {
+	// Test database connection
+	return s.DB.Test()
+}

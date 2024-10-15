@@ -24,22 +24,17 @@ type MongoUser struct {
 
 // Database client
 func NewClient(ctx context.Context, mongoUri string, database string, mongoUser MongoUser) *Mongo {
-	serverAPI := options.ServerAPI(options.ServerAPIVersion1)
-	connectionString := fmt.Sprintf("mongodb://%s:%s@%s/?tls=true&tlsCAFile=global-bundle.pem&retryWrites=false", mongoUser.Username, mongoUser.Password, mongoUri)
-	opts := options.Client().ApplyURI(connectionString).SetServerAPIOptions(serverAPI).SetMaxConnIdleTime(time.Duration(10) * time.Second)
-	fmt.Println(opts.MaxConnIdleTime)
+	connectionString := fmt.Sprintf("mongodb://%s:%s@%s/?retryWrites=false&directConnection=true", mongoUser.Username, mongoUser.Password, mongoUri)
+	fmt.Printf("Mongo connectionString: mongodb://<credentials>@%s/?retryWrites=false&directConnection=truen\n", mongoUri)
+	opts := options.Client().ApplyURI(connectionString).SetMaxConnIdleTime(time.Second * 30)
 	mongoClient, err := mongo.Connect(ctx, opts)
 	if err != nil {
 		log.Fatal(err)
 	}
-	db := mongoClient.Database(database)
-
-	// Test MongoDB connection
-	var result bson.M
-	if err := db.RunCommand(ctx, bson.D{{"ping", 1}}).Decode(&result); err != nil {
+	if err := mongoClient.Ping(context.TODO(), nil); err != nil {
 		panic(err)
 	}
-	log.Printf("Connected to MongoDB: %+v\n", result["ok"])
+	log.Println("Connected to MongoDB")
 
 	return &Mongo{
 		client: mongoClient,
@@ -74,4 +69,14 @@ func (m *Mongo) Close() {
 			panic(err)
 		}
 	}()
+}
+
+// Returns true if the connection to MongoDB is successful
+func (m *Mongo) Test() bool {
+	if err := m.client.Ping(context.TODO(), nil); err != nil {
+		log.Printf("Error pinging MongoDB: %v\n", err)
+		return false
+	}
+	log.Println("Successfully connected to MongoDB")
+	return true
 }
